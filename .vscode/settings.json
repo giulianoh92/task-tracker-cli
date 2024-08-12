@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "status.h": "c",
+        "file_ops.h": "c",
+        "utils.h": "c",
+        "command.h": "c",
+        "task.h": "c"
+    }
+}
