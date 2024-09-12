@@ -11,43 +11,33 @@ const char *filename = "bin/tasks.dat";
 int getLastID() {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
-        return 1;
+        perror("Failed to open file");
+        return 0;
     }
 
     Task task;
     int lastID = 0;
 
     while (fread(&task.id, sizeof(int), 1, fp)) {
+        // Read the rest of the task to move the file pointer correctly
         fread(&task.status, sizeof(int), 1, fp);
 
         int descriptionLength;
         fread(&descriptionLength, sizeof(int), 1, fp);
-        task.description = (descriptionLength > 0) ? (char *)malloc(descriptionLength) : NULL;
-        if (task.description) fread(task.description, sizeof(char), descriptionLength, fp);
+        fseek(fp, descriptionLength, SEEK_CUR);
 
         int createdAtLength;
         fread(&createdAtLength, sizeof(int), 1, fp);
-        task.createdAt = (createdAtLength > 0) ? (char *)malloc(createdAtLength) : NULL;
-        if (task.createdAt) fread(task.createdAt, sizeof(char), createdAtLength, fp);
+        fseek(fp, createdAtLength, SEEK_CUR);
 
         int updatedAtLength;
         fread(&updatedAtLength, sizeof(int), 1, fp);
-        task.updatedAt = (updatedAtLength > 0) ? (char *)malloc(updatedAtLength) : NULL;
-        if (task.updatedAt) fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
+        fseek(fp, updatedAtLength, SEEK_CUR);
 
-        // Update lastID with the current task's ID
-        if (task.id > lastID) {
-            lastID = task.id;
-        }
-
-        // Free allocated memory
-        free(task.description);
-        free(task.createdAt);
-        free(task.updatedAt);
+        lastID = task.id;
     }
 
     fclose(fp);
-
     return lastID + 1;  // Return the next ID, which is the last ID + 1
 }
 
@@ -76,7 +66,7 @@ void createTask(const char *description) {
 void insertTask(Task *newTask) {
     FILE *fp = fopen(filename, "ab");
     if (!fp) {
-        fprintf(stderr, "Error opening file\n");
+        perror("Failed to open file");
         return;
     }
     
@@ -101,6 +91,7 @@ void insertTask(Task *newTask) {
 void listTasksWhere(Status *status) {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
+        perror("Failed to open file");
         return;
     }
 
@@ -110,24 +101,22 @@ void listTasksWhere(Status *status) {
 
         int descriptionLength;
         fread(&descriptionLength, sizeof(int), 1, fp);
-        task.description = (descriptionLength > 0) ? (char *)malloc(descriptionLength) : NULL;
-        if (task.description) fread(task.description, sizeof(char), descriptionLength, fp);
+        task.description = (char *)malloc(descriptionLength);
+        fread(task.description, sizeof(char), descriptionLength, fp);
 
         int createdAtLength;
         fread(&createdAtLength, sizeof(int), 1, fp);
-        task.createdAt = (createdAtLength > 0) ? (char *)malloc(createdAtLength) : NULL;
-        if (task.createdAt) fread(task.createdAt, sizeof(char), createdAtLength, fp);
+        task.createdAt = (char *)malloc(createdAtLength);
+        fread(task.createdAt, sizeof(char), createdAtLength, fp);
 
         int updatedAtLength;
         fread(&updatedAtLength, sizeof(int), 1, fp);
-        task.updatedAt = (updatedAtLength > 0) ? (char *)malloc(updatedAtLength) : NULL;
-        if (task.updatedAt) fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
+        task.updatedAt = (char *)malloc(updatedAtLength);
+        fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
 
         if (!status || task.status == status->id) {
             printf("ID: %d, Description: %s, Status: %s, Created At: %s, Updated At: %s\n",
-                task.id, task.description ? task.description : "N/A",
-                getStatus(task.status), task.createdAt ? task.createdAt : "N/A",
-                task.updatedAt ? task.updatedAt : "N/A");
+                   task.id, task.description, getStatus(task.status), task.createdAt, task.updatedAt);
         }
 
         free(task.description);
@@ -142,57 +131,34 @@ void deleteTask(int *id) {
     FILE *fp = fopen(filename, "rb");
     FILE *temp_fp = fopen("temp.dat", "wb");
     if (!fp || !temp_fp) {
-        fprintf(stderr, "Error opening file\n");
+        perror("Failed to open file");
         if (fp) fclose(fp);
         if (temp_fp) fclose(temp_fp);
         return;
     }
 
     int found = 0;
+    Task task;
 
-    while (!feof(fp)) {
-        Task task;
-        int descriptionLength, createdAtLength, updatedAtLength;
-
-        if (fread(&task.id, sizeof(int), 1, fp) != 1) break;
+    while (fread(&task.id, sizeof(int), 1, fp)) {
         fread(&task.status, sizeof(int), 1, fp);
 
-        if (fread(&descriptionLength, sizeof(int), 1, fp) != 1) break;
+        int descriptionLength;
+        fread(&descriptionLength, sizeof(int), 1, fp);
         task.description = (char *)malloc(descriptionLength);
-        if (!task.description) {
-            fprintf(stderr, "Memory allocation failed\n");
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.description, sizeof(char), descriptionLength, fp);
 
-        if (fread(&createdAtLength, sizeof(int), 1, fp) != 1) break;
+        int createdAtLength;
+        fread(&createdAtLength, sizeof(int), 1, fp);
         task.createdAt = (char *)malloc(createdAtLength);
-        if (!task.createdAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.createdAt, sizeof(char), createdAtLength, fp);
 
-        if (fread(&updatedAtLength, sizeof(int), 1, fp) != 1) break;
+        int updatedAtLength;
+        fread(&updatedAtLength, sizeof(int), 1, fp);
         task.updatedAt = (char *)malloc(updatedAtLength);
-        if (!task.updatedAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            free(task.createdAt);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
 
-        if (task.id == *id) {
-            found = 1;
-        } else {
+        if (task.id != *id) {
             fwrite(&task.id, sizeof(int), 1, temp_fp);
             fwrite(&task.status, sizeof(int), 1, temp_fp);
             fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
@@ -201,6 +167,8 @@ void deleteTask(int *id) {
             fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
             fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
             fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
+        } else {
+            found = 1;
         }
 
         free(task.description);
@@ -215,118 +183,70 @@ void deleteTask(int *id) {
         remove(filename);
         rename("temp.dat", filename);
     } else {
-        printf("Task with ID %d not found.\n", *id);
         remove("temp.dat");
+        fprintf(stderr, "Task with ID %d not found.\n", *id);
     }
 }
 
 void updateTask(int *id, char *description) {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
-        fprintf(stderr, "Error opening file for reading\n");
+        perror("Failed to open file");
         return;
     }
 
-    // Temporary file for writing updated tasks
     FILE *temp_fp = fopen("temp.dat", "wb");
     if (!temp_fp) {
-        fprintf(stderr, "Error opening temporary file for writing\n");
+        perror("Failed to open temporary file");
         fclose(fp);
         return;
     }
 
-    while (!feof(fp)) {
-        Task task;
-        int descriptionLength, createdAtLength, updatedAtLength;
-
-        long pos = ftell(fp);
-
-        if (fread(&task.id, sizeof(int), 1, fp) != 1) break;
+    Task task;
+    while (fread(&task.id, sizeof(int), 1, fp)) {
         fread(&task.status, sizeof(int), 1, fp);
 
-        if (fread(&descriptionLength, sizeof(int), 1, fp) != 1) break;
+        int descriptionLength;
+        fread(&descriptionLength, sizeof(int), 1, fp);
         task.description = (char *)malloc(descriptionLength);
-        if (!task.description) {
-            fprintf(stderr, "Memory allocation failed\n");
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.description, sizeof(char), descriptionLength, fp);
 
-        if (fread(&createdAtLength, sizeof(int), 1, fp) != 1) break;
+        int createdAtLength;
+        fread(&createdAtLength, sizeof(int), 1, fp);
         task.createdAt = (char *)malloc(createdAtLength);
-        if (!task.createdAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.createdAt, sizeof(char), createdAtLength, fp);
 
-        if (fread(&updatedAtLength, sizeof(int), 1, fp) != 1) break;
+        int updatedAtLength;
+        fread(&updatedAtLength, sizeof(int), 1, fp);
         task.updatedAt = (char *)malloc(updatedAtLength);
-        if (!task.updatedAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            free(task.createdAt);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
 
-        // If the task ID matches, update the task
         if (task.id == *id) {
             free(task.description);
             task.description = strdup(description);
-
-            descriptionLength = strlen(task.description) + 1;
-            fwrite(&task.id, sizeof(int), 1, temp_fp);
-            fwrite(&task.status, sizeof(int), 1, temp_fp);
-
-            fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
-            fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
-
-            createdAtLength = strlen(task.createdAt) + 1;
-            fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
-
-            updatedAtLength = strlen(task.updatedAt) + 1;
-            fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
-
-            free(task.description);
-            free(task.createdAt);
             free(task.updatedAt);
-        } else {
-            // Write the task as is to the temporary file
-            fwrite(&task.id, sizeof(int), 1, temp_fp);
-            fwrite(&task.status, sizeof(int), 1, temp_fp);
-
-            descriptionLength = strlen(task.description) + 1;
-            fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
-            fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
-
-            createdAtLength = strlen(task.createdAt) + 1;
-            fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
-
-            updatedAtLength = strlen(task.updatedAt) + 1;
-            fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
-
-            free(task.description);
-            free(task.createdAt);
-            free(task.updatedAt);
+            task.updatedAt = getTodayDate();
         }
+
+        fwrite(&task.id, sizeof(int), 1, temp_fp);
+        fwrite(&task.status, sizeof(int), 1, temp_fp);
+        descriptionLength = strlen(task.description) + 1;
+        fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
+        fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
+        fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
+        fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
+        updatedAtLength = strlen(task.updatedAt) + 1;
+        fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
+        fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
+
+        free(task.description);
+        free(task.createdAt);
+        free(task.updatedAt);
     }
 
     fclose(fp);
     fclose(temp_fp);
 
-    // Replace the original file with the temporary file
     remove(filename);
     rename("temp.dat", filename);
 }
@@ -334,115 +254,60 @@ void updateTask(int *id, char *description) {
 void setTaskTo(int *id, Status *status) {
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
-        fprintf(stderr, "Error opening file for reading\n");
+        perror("Failed to open file");
         return;
     }
 
-    // Temporary file for writing updated tasks
     FILE *temp_fp = fopen("temp.dat", "wb");
     if (!temp_fp) {
-        fprintf(stderr, "Error opening temporary file for writing\n");
+        perror("Failed to open temporary file");
         fclose(fp);
         return;
     }
 
-    while (!feof(fp)) {
-        Task task;
-        int descriptionLength, createdAtLength, updatedAtLength;
-
-        long pos = ftell(fp);
-
-        if (fread(&task.id, sizeof(int), 1, fp) != 1) break;
+    Task task;
+    while (fread(&task.id, sizeof(int), 1, fp)) {
         fread(&task.status, sizeof(int), 1, fp);
 
-        if (fread(&descriptionLength, sizeof(int), 1, fp) != 1) break;
+        int descriptionLength;
+        fread(&descriptionLength, sizeof(int), 1, fp);
         task.description = (char *)malloc(descriptionLength);
-        if (!task.description) {
-            fprintf(stderr, "Memory allocation failed\n");
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.description, sizeof(char), descriptionLength, fp);
 
-        if (fread(&createdAtLength, sizeof(int), 1, fp) != 1) break;
+        int createdAtLength;
+        fread(&createdAtLength, sizeof(int), 1, fp);
         task.createdAt = (char *)malloc(createdAtLength);
-        if (!task.createdAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.createdAt, sizeof(char), createdAtLength, fp);
 
-        if (fread(&updatedAtLength, sizeof(int), 1, fp) != 1) break;
+        int updatedAtLength;
+        fread(&updatedAtLength, sizeof(int), 1, fp);
         task.updatedAt = (char *)malloc(updatedAtLength);
-        if (!task.updatedAt) {
-            fprintf(stderr, "Memory allocation failed\n");
-            free(task.description);
-            free(task.createdAt);
-            fclose(fp);
-            fclose(temp_fp);
-            return;
-        }
         fread(task.updatedAt, sizeof(char), updatedAtLength, fp);
 
-        // If the task ID matches, update the task
         if (task.id == *id) {
             task.status = status->id;
-
-            descriptionLength = strlen(task.description) + 1;
-            fwrite(&task.id, sizeof(int), 1, temp_fp);
-            fwrite(&task.status, sizeof(int), 1, temp_fp);
-
-            fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
-            fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
-
-            createdAtLength = strlen(task.createdAt) + 1;
-            fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
-
-            if (strcmp(status->status,"done") == 0)
-            {
-                free(task.updatedAt);
-                task.updatedAt = getTodayDate();
-            }
-
-            updatedAtLength = strlen(task.updatedAt) + 1;
-            fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
-
-            free(task.description);
-            free(task.createdAt);
             free(task.updatedAt);
-        } else {
-            // Write the task as is to the temporary file
-            fwrite(&task.id, sizeof(int), 1, temp_fp);
-            fwrite(&task.status, sizeof(int), 1, temp_fp);
-
-            descriptionLength = strlen(task.description) + 1;
-            fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
-            fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
-
-            createdAtLength = strlen(task.createdAt) + 1;
-            fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
-
-            updatedAtLength = strlen(task.updatedAt) + 1;
-            fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
-            fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
-
-            free(task.description);
-            free(task.createdAt);
-            free(task.updatedAt);
+            task.updatedAt = getTodayDate();
         }
+
+        fwrite(&task.id, sizeof(int), 1, temp_fp);
+        fwrite(&task.status, sizeof(int), 1, temp_fp);
+        fwrite(&descriptionLength, sizeof(int), 1, temp_fp);
+        fwrite(task.description, sizeof(char), descriptionLength, temp_fp);
+        fwrite(&createdAtLength, sizeof(int), 1, temp_fp);
+        fwrite(task.createdAt, sizeof(char), createdAtLength, temp_fp);
+        fwrite(&updatedAtLength, sizeof(int), 1, temp_fp);
+        fwrite(task.updatedAt, sizeof(char), updatedAtLength, temp_fp);
+
+        free(task.description);
+        free(task.createdAt);
+        free(task.updatedAt);
     }
 
     fclose(fp);
     fclose(temp_fp);
 
-    // Replace the original file with the temporary file
     remove(filename);
     rename("temp.dat", filename);
 }
+
