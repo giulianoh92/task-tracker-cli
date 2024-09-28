@@ -12,7 +12,9 @@ CommandType parseCommandLineArguments(int argc, char *argv[]) {
         if (strcmp(argv[0], "update") == 0) return CMD_UPDATE;
     } else if (argc == 2) {
         if (strcmp(argv[0], "add") == 0) return CMD_ADD;
-        if (strcmp(argv[0], "delete") == 0) return CMD_DELETE;
+        if (strcmp(argv[0], "delete") == 0 && strcmp(argv[1], "all") == 0) {
+            return CMD_DELETE_ALL;
+        }else if (strcmp(argv[0], "delete") == 0) return CMD_DELETE;
         if (strcmp(argv[0], "mark-in-progress") == 0) return CMD_MARK_IN_PROGRESS;
         if (strcmp(argv[0], "mark-done") == 0) return CMD_MARK_DONE;
         if (strcmp(argv[0], "list") == 0) {
@@ -23,7 +25,8 @@ CommandType parseCommandLineArguments(int argc, char *argv[]) {
     } else if (argc == 1) {
         if (strcmp(argv[0], "list") == 0) return CMD_LIST;
         if (strcmp(argv[0], "exit") == 0) return CMD_EXIT;
-        if (strcmp(argv[0], "help") == 0) return CMD_HELP; // Handle help command
+        if (strcmp(argv[0], "help") == 0) return CMD_HELP;
+        if (strcmp(argv[0], "clear") == 0) return CMD_CLEAR;
     }
     return CMD_UNKNOWN;
 }
@@ -54,6 +57,13 @@ void executeCommand(CommandType cmdType, int argc, char *argv[]) {
             }
             taskId = atoi(argv[1]);
             deleteTask(&taskId);
+            break;
+        case CMD_DELETE_ALL:
+            if (argc > 2) {
+                fprintf(stderr, "Usage: delete all\n");
+                return;
+            }
+            deleteAllTasks();
             break;
         case CMD_LIST:
             if (argc > 2) {
@@ -101,6 +111,9 @@ void executeCommand(CommandType cmdType, int argc, char *argv[]) {
             break;
         case CMD_HELP:
             printHelp();
+            break;
+        case CMD_CLEAR:
+            system("clear");
             break;
         case CMD_UNKNOWN:
         default:

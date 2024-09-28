@@ -1,18 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "../include/command.h"
 
+#define HISTORY_FILE ".task_tracker_history"
+
 int main(int argc, char *argv[]) {
-    char input[256];
+    char *input;
     char *args[10];
     int argCount;
 
+    // Load history from file
+    read_history(HISTORY_FILE);
+
     while (1) {
-        printf("task-tracker> ");
-        if (!fgets(input, sizeof(input), stdin)) {
+        input = readline("task-tracker> ");
+        if (!input) {
             break; // Exit on EOF (Ctrl+D)
         }
+
+        // Add input to history
+        add_history(input);
 
         // Remove newline character
         input[strcspn(input, "\n")] = 0;
@@ -56,16 +66,22 @@ int main(int argc, char *argv[]) {
         }
 
         if (argCount == 0) {
+            free(input);
             continue; // Skip empty input
         }
 
         // Parse and execute command
         CommandType cmdType = parseCommandLineArguments(argCount, args);
         if (cmdType == CMD_EXIT) {
+            free(input);
             break; 
         }
         executeCommand(cmdType, argCount, args);
+        free(input);
     }
+
+    // Save history to file
+    write_history(HISTORY_FILE);
 
     return 0;
 }

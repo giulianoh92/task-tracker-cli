@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 #include "../include/task.h"
 #include "../include/status.h"
 #include "../include/file_ops.h"
@@ -85,10 +86,13 @@ void insertTask(Task *newTask) {
     fwrite(&updatedAtLength, sizeof(int), 1, fp);
     if (updatedAtLength > 0) fwrite(newTask->updatedAt, sizeof(char), updatedAtLength, fp);
 
+    printf("Task created successfully.\n");
+
     fclose(fp);
 }
 
 void listTasksWhere(Status *status) {
+    bool tasksFound = false;
     FILE *fp = fopen(filename, "rb");
     if (!fp) {
         perror("Failed to open file");
@@ -97,6 +101,7 @@ void listTasksWhere(Status *status) {
 
     Task task;
     while (fread(&task.id, sizeof(int), 1, fp)) {
+        tasksFound = true;
         fread(&task.status, sizeof(int), 1, fp);
 
         int descriptionLength;
@@ -122,6 +127,10 @@ void listTasksWhere(Status *status) {
         free(task.description);
         free(task.createdAt);
         free(task.updatedAt);
+    }
+
+    if (!tasksFound) {
+        printf("No tasks found.\n");
     }
 
     fclose(fp);
@@ -182,10 +191,23 @@ void deleteTask(int *id) {
     if (found) {
         remove(filename);
         rename("temp.dat", filename);
+
+        printf("Task with ID %d deleted successfully.\n", *id);
     } else {
         remove("temp.dat");
         fprintf(stderr, "Task with ID %d not found.\n", *id);
     }
+}
+
+void deleteAllTasks() {
+    remove(filename);
+    FILE *fp = fopen(filename, "wb");
+    if (!fp) {
+        perror("Failed to open file");
+        return;
+    }
+    fclose(fp);
+    printf("All tasks deleted successfully.\n");
 }
 
 void updateTask(int *id, char *description) {
@@ -249,6 +271,8 @@ void updateTask(int *id, char *description) {
 
     remove(filename);
     rename("temp.dat", filename);
+
+    printf("Task with ID %d updated successfully.\n", *id);
 }
 
 void setTaskTo(int *id, Status *status) {
@@ -309,5 +333,7 @@ void setTaskTo(int *id, Status *status) {
 
     remove(filename);
     rename("temp.dat", filename);
+
+    printf("Task with ID %d set to %s successfully.\n", *id, status->status);
 }
 

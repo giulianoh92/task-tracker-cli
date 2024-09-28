@@ -5,6 +5,7 @@ typedef enum {
     CMD_ADD,
     CMD_UPDATE,
     CMD_DELETE,
+    CMD_DELETE_ALL,
     CMD_MARK_IN_PROGRESS,
     CMD_MARK_DONE,
     CMD_LIST,
@@ -13,6 +14,7 @@ typedef enum {
     CMD_LIST_IN_PROGRESS,
     CMD_HELP,
     CMD_EXIT,
+    CMD_CLEAR,
     CMD_UNKNOWN
 } CommandType;
 

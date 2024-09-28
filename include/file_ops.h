@@ -8,6 +8,7 @@ void createTask(const char *description);
 void insertTask(Task *newTask);
 void listTasksWhere(Status *status);
 void deleteTask(int *id);
+void deleteAllTasks();
 void updateTask(int *id, char *description);
 void setTaskTo(int *id, Status *status);
 int getLastID();
